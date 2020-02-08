@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mule xmlns:validation="http://www.mulesoft.org/schema/mule/validation"
+	xmlns:cnbCircuitBreaker="http://www.mulesoft.org/schema/mule/cnbCircuitBreaker"
+	xmlns:json-logger="http://www.mulesoft.org/schema/mule/json-logger" 
+	xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns="http://www.mulesoft.org/schema/mule/core"
+	xmlns:api-gateway="http://www.mulesoft.org/schema/mule/api-gateway"
+	xmlns:apikit="http://www.mulesoft.org/schema/mule/mule-apikit"
+	xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" 
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd 
+ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd 
+ http://www.mulesoft.org/schema/mule/mule-apikit http://www.mulesoft.org/schema/mule/mule-apikit/current/mule-apikit.xsd  
+ http://www.mulesoft.org/schema/mule/api-gateway http://www.mulesoft.org/schema/mule/api-gateway/current/mule-api-gateway.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd 
+http://www.mulesoft.org/schema/mule/json-logger http://www.mulesoft.org/schema/mule/json-logger/current/mule-json-logger.xsd 
+http://www.mulesoft.org/schema/mule/cnbCircuitBreaker http://www.mulesoft.org/schema/mule/cnbCircuitBreaker/current/mule-cnbCircuitBreaker.xsd
+http://www.mulesoft.org/schema/mule/validation http://www.mulesoft.org/schema/mule/validation/current/mule-validation.xsd">
+
+	<validation:config name="Validation_Config" doc:name="Validation Config" doc:id="37bdb0e6-4754-4d05-a964-8df77ed96291" />
+	<http:request-config name="HTTP_Request_configuration2" doc:name="HTTP Request configuration" doc:id="f1370089-6e45-4148-bd40-8f5744effb60" />
+	<flow name="post-decryption-request-main-flow" doc:id="f5c32238-4fae-4d64-8609-7f808dd5e2f1">
+		<flow-ref doc:name="process-common-validate-headers" doc:id="32c4325b-9c4b-4eaa-a028-a5f00c3f8fe5" name="post-all-decryption-requests-to-azk-flow"/>
+        <ee:transform xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" doc:id="f8e99cf3-01a4-46fc-802e-530a5c32322d" doc:name="extract vars.keyName">
+            <ee:variables>
+                <ee:set-variable variableName="keyName"><![CDATA[attributes.uriParams.keyName]]></ee:set-variable>
+            </ee:variables>
+        </ee:transform>
+		<ee:transform doc:name="check for invalid encrypted text" doc:id="982d0c3b-c984-4adf-a7c9-70b54b32f330" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable resource="dwl/extract-invalid-encrypted-text.dwl" variableName="invalidEncryptedText" />
+			</ee:variables>
+		</ee:transform>
+		<validation:is-empty-collection doc:name="invalid cipher text?" doc:id="77e80eb9-8193-46d7-b913-b73f00d51952" config-ref="Validation_Config" values="#[vars.invalidEncryptedText]" message="Payload contains invalid cipher text. Expected format {key-version}:{encrypted-text}"/>
+		<ee:transform doc:name="save original request payload + index"
+			doc:id="f9bbafd4-49a2-49b1-ae12-7fc50bfc8b5f">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable resource="dwl/generate-original-decrypt-request-payload-with-index.dwl" variableName="originalRequestPayload" />
+			</ee:variables>
+		</ee:transform>
+		<flow-ref doc:name="post-all-decryption-requests-to-azk-flow"
+			doc:id="c576849e-cfb0-48e9-ad62-52ecf84b703d" name="post-all-decryption-requests-to-azk-flow" />
+		<error-handler>
+			<on-error-propagate enableNotifications="true"
+				logException="true" doc:name="On Error Propagate" doc:id="cc16e4c1-fc94-4037-9d89-39ff4102302d">
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+	<flow name="post-all-decryption-requests-to-azk-flow" doc:id="0b3ffebf-eeef-4159-95f6-1ad6ab240312">
+		<set-variable value="#[sizeOf(vars.originalRequestPayload)]"
+			doc:name="set array size"  doc:id="5881ff4b-b580-4e98-9b35-fa9c323bc870"
+			variableName="arraysize" />
+		<ee:transform doc:name="init response collector" doc:id="6a0d4783-0b69-4546-a67d-663c4ab02f62" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="responseCollector" ><![CDATA[%dw 2.0
+output application/java
+---
+[]]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<foreach doc:name="for each decrypt-request" doc:id="14cd9fac-041c-4060-8ef9-9325835134bc"
+			collection="#[vars.originalRequestPayload]">
+			<flow-ref doc:name="post-single-decryption-request-to-azk-flow" doc:id="988f8dbe-073e-4ed1-9a27-528ad809989f" name="post-single-decryption-request-to-azk-flow" />
+			<ee:transform doc:name="add response to collector" doc:id="5d7cb4da-a1f9-4692-ac26-64ca6c771549" >
+				<ee:message >
+				</ee:message>
+				<ee:variables >
+					<ee:set-variable resource="dwl/add-decrypt-response-to-collector.dwl" variableName="responseCollector" />
+				
+</ee:variables>
+			</ee:transform>
+		</foreach>
+		<ee:transform doc:name="merge and order all responses"
+			doc:id="b5fc0a14-ef42-45e3-aed3-b0aa55e6988f">
+			<ee:message>
+				<ee:set-payload resource="dwl/merge-and-order-all-decryption-responses.dwl" />
+			</ee:message>
+		</ee:transform>
+	</flow>
+
+	<flow name="post-single-decryption-request-to-azk-flow">
+		<ee:transform doc:name="store payload as variable" doc:id="be1c0185-534e-49ef-9535-ba18109d7007" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="decryptRequestWithIndex" ><![CDATA[%dw 2.0
+output application/java
+---
+payload]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<try doc:name="Try" doc:id="cb54b280-0678-4455-8c02-5c38a4ce14c1" >
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="27731602-1ba9-42fe-96a4-9a22d7b52c66" >
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<ee:transform doc:name="generate decryption url" doc:id="9fd0d63e-c828-4d21-b146-254664c59541">
+					<ee:message>
+					</ee:message>
+					<ee:variables>
+						<ee:set-variable resource="dwl/generate-decryption-url.dwl" variableName="decryptionUrl" />
+					</ee:variables>
+				</ee:transform>
+		<ee:transform doc:name="generate decrypt request" doc:id="ade3bd49-c8d7-4ce9-82b0-19b412bbd7fe">
+					<ee:message>
+				<ee:set-payload resource="dwl/generate-decrypt-request.dwl" />
+					
+</ee:message>
+				</ee:transform>
+		<http:request method="POST" doc:name="Decrypt Request to Azure Key Vault" doc:id="12467bba-d414-4c1f-a8a4-8f4225a293eb" path="#[vars.decryptionUrl]" target="decryptResponsePayload" config-ref="HTTP_Request_configuration2" sendCorrelationId="ALWAYS" correlationId='#[vars.authHeaders."x-transaction-id"]' outputMimeType="application/json" followRedirects="true" sendBodyMode="ALWAYS" requestStreamingMode="AUTO">
+					<http:body><![CDATA[#[output application/json
+---
+payload]]]></http:body>
+					<http:headers><![CDATA[#[output application/java
+---
+{
+	"Authorization" : vars.authHeaders."Authorization",
+	"Content-Type" : "application/json",
+	"x-transaction-id" : vars.authHeaders."x-transaction-id"
+}]]]></http:headers>			
+</http:request>
+		<try doc:name="Try" doc:id="4bfb491b-c2fb-44a7-8d18-1c69d4f1c3f0" >
+			<error-handler >
+				<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="065052df-5aef-4bc9-8e86-a857168baabc" >
+				</on-error-continue>
+			</error-handler>
+		</try>
+		<ee:transform doc:name="map azure decrypt  response to api response" doc:id="e83e4a53-890f-41f6-b350-685048553132">
+			<ee:message>
+			</ee:message>
+			<ee:variables>
+				<ee:set-variable resource="dwl/map-azure-decryption-response-to-api-response.dwl" variableName="decryptResponseWithIndex" />
+			</ee:variables>
+		
+</ee:transform>
+		<error-handler>
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="edc0903e-15fc-4145-8833-d06ab131221a" >
+				<try doc:name="Try" doc:id="de399aed-05d1-4046-8c82-a97b1e350406" >
+					<error-handler >
+						<on-error-continue enableNotifications="true" logException="true" doc:name="On Error Continue" doc:id="af7e9cda-81ef-414a-947c-6750a8de5401" >
+						</on-error-continue>
+					</error-handler>
+				</try>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
