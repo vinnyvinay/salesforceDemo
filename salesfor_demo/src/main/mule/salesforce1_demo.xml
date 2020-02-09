@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="191988b4-838e-4525-8c05-abef887c7e7e" >
+		<http:listener-connection host="0.0.0.0" port="8087" />
+	</http:listener-config>
+	<salesforce:sfdc-config name="Salesforce_Config" doc:name="Salesforce Config" doc:id="10ee8985-9ac1-46ee-aac4-750767366ab2" >
+		<salesforce:cached-basic-connection username="victoryboy18@gmail.com" password="Boss007boss" securityToken="OgxKaFGcEU56i8I0GDOR4xQF4" />
+	</salesforce:sfdc-config>
+	<file:config name="File_Config" doc:name="File Config" doc:id="6932a979-28c0-45da-9e18-d83a2ed3ede1" >
+		<file:connection workingDir="G:\" />
+	</file:config>
+	<flow name="salesfor_demoFlow" doc:id="8bb42d5e-a91a-4656-96ed-12dfa320eac9" >
+		<http:listener doc:name="Listener" doc:id="ff1f4f0f-f7c4-40ff-aa47-84b46575f409" config-ref="HTTP_Listener_config" path="/salesfrocedemo/create" allowedMethods="POST,GET"/>
+		<ee:transform doc:name="Transform Message" doc:id="1e033751-a409-4e82-8998-638f93b538df" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map(item,index) -> {
+	Name: item.name,
+	BillingStreet : item.BillingStreet,
+	BillingCity : item.BillingCity,
+	BillingCountry: item.BillingCountry,
+	BillingPostalCode: item.BillingPostalCode
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create doc:name="Create" doc:id="7c5e783c-98f8-437c-bb4c-e76a96cad93a" config-ref="Salesforce_Config" type="Account"/>
+		<ee:transform doc:name="Transform Message" doc:id="c9096078-bfbe-47cc-9bab-32d75fbcaeae" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="salesfor_demoFlow1" doc:id="fbcee0e6-da6a-412b-b161-36696ceb9b30" >
+		<http:listener doc:name="Listener" doc:id="f0e8fc1e-fc8e-4113-898b-5ef465266f40" config-ref="HTTP_Listener_config" path="/salesforcedemo/retrive" allowedMethods="GET,POST"/>
+		<salesforce:query doc:name="Query" doc:id="b045379d-f456-403d-a171-ca971190c61d" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query >SELECT BillingAddress,BillingCity,BillingCountry,Name FROM Account where Name=':name'</salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	name : attributes.queryParams.name
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="fef98a5b-efdd-495d-b723-ce11473f65ad" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="salesfor_demoFlow2" doc:id="d8483a82-608e-44ab-81fd-f7db697adfc6" >
+		<http:listener doc:name="Listener" doc:id="56ece2c5-8026-47fd-adb4-bedf5e5428c9" config-ref="HTTP_Listener_config" path="/salesforcedemo/update" allowedMethods="POST,GET"/>
+		<set-variable value="#[payload.updateName]" doc:name="Set Variable" doc:id="063c4915-099a-4303-925c-1a5cef657e18" variableName="updateName"/>
+		<salesforce:query doc:name="Query" doc:id="bd767744-8797-48b4-b7b9-cbf02e978c37" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query >SELECT Id,Name FROM Account where Name=':name'</salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	name : attributes.queryParams.name
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<ee:transform doc:name="Transform Message" doc:id="0f2dbd2d-f255-4ab3-92bb-9bef3b6a2e9e" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload map {
+	Id : $.Id,
+	Name: vars.updateName
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:update type="Account" doc:name="Update" doc:id="099d0063-e50d-4b5d-8468-996e75777b9f" config-ref="Salesforce_Config"/>
+		<ee:transform doc:name="Transform Message" doc:id="a694e002-2dbc-4d43-8138-5cde9006e6e1" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="salesfor_demoFlow3" doc:id="289b5993-4a76-4e30-be6c-5b26a7997574" >
+		<http:listener doc:name="Listener" doc:id="698d747d-b9f2-4ded-ac6e-dd9bb9685513" config-ref="HTTP_Listener_config" path="/salesforcedemo/delete" allowedMethods="POST,GET"/>
+		<salesforce:query doc:name="Query" doc:id="0b516a80-d0e7-4f7f-82ca-7206d383b48a" config-ref="Salesforce_Config">
+			<salesforce:salesforce-query >SELECT Id,Name FROM Account where Name=':name'</salesforce:salesforce-query>
+			<salesforce:parameters ><![CDATA[#[output application/java
+---
+{
+	name : attributes.queryParams.name
+}]]]></salesforce:parameters>
+		</salesforce:query>
+		<salesforce:delete doc:name="Delete" doc:id="3fd4d8cd-dea6-47d6-bf24-c3cc79423951" config-ref="Salesforce_Config">
+			<salesforce:delete-ids ><![CDATA[#[payload.Id]]]></salesforce:delete-ids>
+		</salesforce:delete>
+		<ee:transform doc:name="Transform Message" doc:id="93086f7f-16c8-493d-a1e4-66b083ea13f4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>

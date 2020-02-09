@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:salesforce="http://www.mulesoft.org/schema/mule/salesforce" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core"
+	xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/salesforce http://www.mulesoft.org/schema/mule/salesforce/current/mule-salesforce.xsd">
+	<file:config name="File_Config1" doc:name="File Config" doc:id="715a03d6-e699-44ba-b42d-cceca3c073e8" >
+		<file:connection workingDir="G:\" />
+	</file:config>
+	<flow name="slaesforceDemo_1Flow" doc:id="95f731be-dc4e-4249-97ec-0cffcc74af54" >
+		<file:listener doc:name="On New or Updated File" doc:id="c7971edb-b982-4e76-a619-5dec84ad01dc" config-ref="File_Config1" directory="New folder (2)\FL_insurance_sample.csv" recursive="false" autoDelete="true">
+			<scheduling-strategy >
+				<fixed-frequency frequency="20000"/>
+			</scheduling-strategy>
+		</file:listener>
+		<ee:transform doc:name="Transform Message" doc:id="41154e59-a177-4c85-a4e2-0ef6cad85d23" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+payload map (items,index) -> {
+	Email:items.Email,
+	FirstName:items.FirstName,
+	LastName:items.LastName,
+	Phone:items.Phone
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<salesforce:create type="Contact" doc:name="Create" doc:id="0cd6c4d4-b1c8-457f-955a-2d872e00f461" config-ref="Salesforce_Config"/>
+		<ee:transform doc:name="Transform Message" doc:id="d3d1a0ec-128c-41b4-987e-de9fb418c9e6" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output application/json
+---
+payload]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<file:write doc:name="Write" doc:id="c4971600-726b-4672-a517-dc4985ed986a" config-ref="File_Config1" path="New folder (2)\output\test.json"/>
+	</flow>
+</mule>
